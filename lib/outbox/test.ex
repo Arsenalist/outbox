@@ -85,7 +85,7 @@ defmodule Amplify.DomainEvents.Test do
     result = fun.()
 
     # Dispatch any events published during fun.()
-    Amplify.DomainEvents.Dispatcher.perform(%Oban.Job{args: %{}})
+    Amplify.DomainEvents.Dispatcher.run()
 
     # Drain the per-subscriber jobs the dispatcher just enqueued
     Oban.drain_queue(queue: :domain_events)

@@ -3,22 +3,24 @@ defmodule Amplify.DomainEvents.Dispatcher do
   Polls the `outbox_events` table for undispatched events and fans them
   out to subscribers.
 
-  Runs as an Oban cron worker (every 5s by default; see Oban config).
-  Each tick:
+  Invoked from `Amplify.DomainEvents.Ticker` every ~5s via
+  `Task.Supervisor.start_child/2`. Each invocation:
 
     1. Opens a transaction
     2. Selects up to `@batch_size` undispatched events ordered by `id`
-       with `FOR UPDATE SKIP LOCKED` (multi-node safe)
+       with `FOR UPDATE SKIP LOCKED` (multi-node safe; concurrent
+       invocations on the same node are also safe)
     3. For each event, looks up subscribers via `Registry.lookup/1`
        and enqueues one `SubscriberJob` per subscriber
     4. Marks all processed events `dispatched_at = utc_now()`
 
   An event with no registered subscribers is still marked dispatched
-  (and a debug log is emitted). This prevents the dispatcher from
-  re-scanning the same row on every tick.
-  """
+  (and a debug log is emitted). This prevents re-scanning on every tick.
 
-  use Oban.Worker, queue: :domain_events_dispatch, max_attempts: 3
+  Failures don't auto-retry — the next tick (5s later) is the retry.
+  This is appropriate for a "drain the outbox" loop with no per-tick
+  state to recover.
+  """
 
   import Ecto.Query
 
@@ -29,8 +31,11 @@ defmodule Amplify.DomainEvents.Dispatcher do
 
   @batch_size 100
 
-  @impl Oban.Worker
-  def perform(_job) do
+  @doc """
+  Run one dispatch pass: claim a batch of undispatched events, fan out
+  to subscribers, mark dispatched. Returns `:ok`.
+  """
+  def run do
     Repo.transaction(fn -> dispatch_batch() end)
     :ok
   end
