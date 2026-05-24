@@ -43,7 +43,8 @@ defmodule Amplify.DomainEvents.Test do
       assert_published("variant.updated", %{"id" => "v_xyz"})
   """
   @spec assert_published(String.t(), map()) :: :ok | no_return()
-  def assert_published(name, payload_match \\ %{}) when is_binary(name) and is_map(payload_match) do
+  def assert_published(name, payload_match \\ %{})
+      when is_binary(name) and is_map(payload_match) do
     matches =
       from(e in OutboxEvent, where: e.name == ^name)
       |> Repo.all()
