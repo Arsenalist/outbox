@@ -11,7 +11,7 @@ changes; the minor version is bumped for each one. See
 
 ## [Unreleased]
 
-## [0.1.0] - 2026-06-06
+## [0.1.0-beta.1] - 2026-06-06
 
 ### Added
 

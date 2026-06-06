@@ -29,9 +29,9 @@ mix format
 - Keep PRs scoped — one logical change per PR.
 - Update `CHANGELOG.md` under `[Unreleased]` for every user-visible change.
 - The architecture test (`test/outbox/architecture_test.exs`) enforces
-  the boundary: no `Amplify.*` or other host-app references in `lib/`,
-  runtime deps locked to `[:ecto_sql, :oban, :phoenix_pubsub, :jason]`.
-  Fix the offending file rather than weakening the test.
+  the boundary: no host-app references in `lib/`, runtime deps locked
+  to `[:ecto_sql, :oban, :phoenix_pubsub, :jason]`. Fix the offending
+  file rather than weakening the test.
 
 ## TDD discipline
 

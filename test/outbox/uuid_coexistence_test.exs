@@ -1,9 +1,12 @@
 defmodule Outbox.UuidCoexistenceTest do
   @moduledoc """
   Asserts the dispatcher processes rows in index order regardless of UUID
-  version. Pre-existing rows inserted by `Amplify.DomainEvents` use UUIDv7
-  IDs; new rows inserted by `Outbox` use UUIDv4 (via `uuid_generate_v4()`).
-  Both must coexist correctly during the rolling extraction window.
+  version. Some host applications carry legacy `outbox_events` rows with
+  UUIDv7 IDs from an earlier in-house implementation; new rows inserted by
+  `Outbox.publish/2` use UUIDv4 (via `uuid_generate_v4()`). Both must
+  coexist correctly: the partial-index lookup
+  `WHERE dispatched_at IS NULL ORDER BY id ASC` yields a well-defined
+  iteration regardless of UUID version.
   """
 
   use Outbox.DataCase, async: false

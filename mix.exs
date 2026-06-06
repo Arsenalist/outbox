@@ -1,25 +1,18 @@
 defmodule Outbox.MixProject do
   use Mix.Project
 
-  @version "0.1.0"
+  @version "0.1.0-beta.1"
   @source_url "https://github.com/Arsenalist/outbox"
 
   @moduledoc false
 
-  # Outbox — host-agnostic transactional outbox + Oban fan-out library
-  # for Phoenix/Ecto/Oban apps.
-  #
-  # This is a path-dependency mix project; the parent app adds
-  # `{:outbox, path: "outbox"}` (mirroring the Reflex sub-project layout
-  # at `amplify/reflex/`). After production validation across a few
-  # release cycles, the directory is lifted to a sibling repo and
-  # published to Hex.
-  #
-  # The boundary is physical: nothing in `lib/` may reference
-  # `Amplify.*` or `AmplifyWeb.*`. Runtime deps are locked to
-  # `[:ecto_sql, :oban, :phoenix_pubsub, :jason]` — enforced by
-  # `test/outbox/architecture_test.exs`. The host injects its Repo via
-  # `config :outbox, repo: MyApp.Repo`.
+  # Outbox — transactional outbox + Oban fan-out + Phoenix.PubSub
+  # broadcaster for Phoenix/Ecto/Oban apps. Host-agnostic by
+  # construction: runtime deps locked to
+  # `[:ecto_sql, :oban, :phoenix_pubsub, :jason]`, host injects its
+  # Repo via `config :outbox, Outbox, repo: MyApp.Repo`, and
+  # `test/outbox/architecture_test.exs` guards `lib/` against
+  # host-app references. See README.md for install and usage.
 
   def project do
     [
