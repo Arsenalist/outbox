@@ -1,4 +1,4 @@
-defmodule Amplify.DomainEvents.SubscriberJob do
+defmodule Outbox.SubscriberJob do
   @moduledoc """
   Oban worker that runs a single subscriber's `handle_event/3` for one
   outbox event.
@@ -7,25 +7,25 @@ defmodule Amplify.DomainEvents.SubscriberJob do
   subscriber's failures and retries are isolated.
 
   Args:
-    * `"event_id"` — UUIDv7 of the row in `outbox_events`
+    * `"event_id"` — UUID of the row in `outbox_events`
     * `"subscriber"` — the subscriber module name as a string
 
-  Return values from the subscriber are mapped to Oban semantics:
+  Return-value mapping (Oban semantics):
     * `:ok` → job completes
     * `{:error, reason}` → Oban retries with exponential backoff
     * raised exception → Oban retries with exponential backoff
     * unknown subscriber module → discarded with a clear error
+    * outbox event row missing → discarded with a clear error
   """
 
-  use Oban.Worker, queue: :domain_events, max_attempts: 5
+  use Oban.Worker, queue: :outbox, max_attempts: 5
 
-  alias Amplify.DomainEvents.OutboxEvent
-  alias Amplify.Repo
+  alias Outbox.OutboxEvent
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"event_id" => event_id, "subscriber" => subscriber_str}}) do
     with {:ok, module} <- resolve_subscriber(subscriber_str),
-         %OutboxEvent{} = event <- Repo.get(OutboxEvent, event_id) do
+         %OutboxEvent{} = event <- repo().get(OutboxEvent, event_id) do
       module.handle_event(event.name, event.payload, %{
         event_id: event.id,
         inserted_at: event.inserted_at
@@ -45,4 +45,6 @@ defmodule Amplify.DomainEvents.SubscriberJob do
     ArgumentError ->
       {:discard, "subscriber module not loaded: #{subscriber_str}"}
   end
+
+  defp repo, do: Outbox.Config.repo()
 end

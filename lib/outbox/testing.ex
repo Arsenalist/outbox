@@ -1,16 +1,13 @@
-defmodule Amplify.DomainEvents.Test do
+defmodule Outbox.Testing do
   @moduledoc """
-  Test helpers for asserting domain event publication and exercising
+  Test helpers for asserting domain-event publication and exercising
   subscribers synchronously.
 
   Import in your test:
 
       defmodule MyTest do
         use ExUnit.Case
-        import AmplifyWeb.TestHelpers
-        import Amplify.DomainEvents.Test
-
-        setup :db_test
+        import Outbox.Testing
 
         test "create_widget publishes widget.created" do
           MyContext.create_widget(...)
@@ -29,8 +26,7 @@ defmodule Amplify.DomainEvents.Test do
   import Ecto.Query
   import ExUnit.Assertions
 
-  alias Amplify.DomainEvents.OutboxEvent
-  alias Amplify.Repo
+  alias Outbox.OutboxEvent
 
   @doc """
   Asserts that an event with the given name was published during the
@@ -45,15 +41,17 @@ defmodule Amplify.DomainEvents.Test do
   @spec assert_published(String.t(), map()) :: :ok | no_return()
   def assert_published(name, payload_match \\ %{})
       when is_binary(name) and is_map(payload_match) do
+    repo = Outbox.Config.repo()
+
     matches =
       from(e in OutboxEvent, where: e.name == ^name)
-      |> Repo.all()
+      |> repo.all()
       |> Enum.filter(&payload_matches?(&1.payload, payload_match))
 
     if matches == [] do
       recent =
         from(e in OutboxEvent, order_by: [desc: e.id], limit: 5, select: {e.name, e.payload})
-        |> Repo.all()
+        |> repo.all()
 
       flunk("""
       Expected an outbox event with name #{inspect(name)} matching payload #{inspect(payload_match)}.
@@ -74,22 +72,16 @@ defmodule Amplify.DomainEvents.Test do
 
   @doc """
   Runs the given function and synchronously dispatches every event
-  published during it, then drains the `:domain_events` queue so all
-  registered subscribers run before returning.
-
-  Use this when a test needs to assert subscriber side effects (HTTP
-  calls, downstream Oban jobs, message broadcasts, etc.) without
-  waiting on the asynchronous dispatcher cron.
+  published during it, then drains the `outbox` queue on the
+  `Outbox.Config.oban/0` instance so all registered subscribers run
+  before returning.
   """
   @spec with_sync_dispatch((-> any())) :: any()
   def with_sync_dispatch(fun) when is_function(fun, 0) do
     result = fun.()
 
-    # Dispatch any events published during fun.()
-    Amplify.DomainEvents.Dispatcher.run()
-
-    # Drain the per-subscriber jobs the dispatcher just enqueued
-    Oban.drain_queue(queue: :domain_events)
+    Outbox.Dispatcher.run()
+    Oban.drain_queue(Outbox.Config.oban(), queue: :outbox)
 
     result
   end

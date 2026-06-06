@@ -1,11 +1,11 @@
-defmodule Amplify.DomainEvents.Subscriber do
+defmodule Outbox.Subscriber do
   @moduledoc """
   Behaviour for modules that react to domain events from the bus.
 
   ## Implementing a subscriber
 
       defmodule MyApp.MySubscriber do
-        use Amplify.DomainEvents.Subscriber
+        use Outbox.Subscriber
 
         @impl true
         def events, do: ["product.created", "product.updated"]
@@ -22,15 +22,15 @@ defmodule Amplify.DomainEvents.Subscriber do
         end
       end
 
-  Then register it in `config/config.exs`:
+  Register it in `config/config.exs`:
 
-      config :amplify, Amplify.DomainEvents,
+      config :outbox, Outbox,
         subscribers: [MyApp.MySubscriber, ...]
 
   ## Delivery contract
 
   Each subscriber receives each event **at least once**. Implementations
-  MUST be idempotent. The `meta` map carries `:event_id` (UUIDv7) and
+  MUST be idempotent. The `meta` map carries `:event_id` (binary UUID) and
   `:inserted_at` (DateTime) so subscribers needing strict deduplication
   can persist a "processed event ids" record.
 
@@ -49,7 +49,7 @@ defmodule Amplify.DomainEvents.Subscriber do
 
   defmacro __using__(_opts) do
     quote do
-      @behaviour Amplify.DomainEvents.Subscriber
+      @behaviour Outbox.Subscriber
     end
   end
 end

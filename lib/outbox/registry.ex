@@ -1,23 +1,19 @@
-defmodule Amplify.DomainEvents.Registry do
+defmodule Outbox.Registry do
   @moduledoc """
   Resolves event names to subscriber modules.
 
-  Reads subscriber modules from
-  `Application.get_env(:amplify, Amplify.DomainEvents)[:subscribers]`
-  on every lookup. This keeps the implementation trivial (no GenServer,
-  no ETS) and lets tests override the subscriber list with
-  `Application.put_env/3` without restarting the application.
+  Reads subscribers from `Outbox.Config.subscribers/0` on every lookup.
+  No GenServer, no ETS cache — the dispatcher polls every 5 seconds, so
+  the lookup happens at most a few times per second per node; caching
+  would not be a meaningful optimization at this volume.
 
-  The dispatcher polls every 5 seconds, so the lookup happens at most a
-  few times per second per node — caching would not be a meaningful
-  optimization at this volume.
+  Trivial-by-design also means tests can override the subscriber list
+  with `Application.put_env/3` without restarting the application.
   """
 
-  @app :amplify
-
   @doc """
-  Returns the list of subscriber modules listening for the given event name.
-  Returns an empty list if no subscribers are registered for the event.
+  Returns the list of subscriber modules listening for the given event
+  name. Returns `[]` if no subscribers match.
   """
   @spec lookup(String.t()) :: [module()]
   def lookup(event_name) when is_binary(event_name) do
@@ -27,12 +23,7 @@ defmodule Amplify.DomainEvents.Registry do
     end
   end
 
-  @doc """
-  Returns the full list of registered subscriber modules.
-  """
+  @doc "Returns the full list of registered subscriber modules."
   @spec subscribers() :: [module()]
-  def subscribers do
-    Application.get_env(@app, Amplify.DomainEvents, [])
-    |> Keyword.get(:subscribers, [])
-  end
+  def subscribers, do: Outbox.Config.subscribers()
 end
