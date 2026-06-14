@@ -47,4 +47,26 @@ defmodule Outbox.TestSubscribers do
     @impl true
     def handle_event(_name, _payload, _meta), do: {:error, :nope}
   end
+
+  defmodule PrefixSubscriber do
+    @moduledoc "Listens for a prefix wildcard plus an exact name."
+    @behaviour Outbox.Subscriber
+
+    @impl true
+    def events, do: ["order.*", "discount.created"]
+
+    @impl true
+    def handle_event(_name, _payload, _meta), do: :ok
+  end
+
+  defmodule CatchAllSubscriber do
+    @moduledoc "Listens for everything via the \"*\" pattern."
+    @behaviour Outbox.Subscriber
+
+    @impl true
+    def events, do: ["*"]
+
+    @impl true
+    def handle_event(_name, _payload, _meta), do: :ok
+  end
 end

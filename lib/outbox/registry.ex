@@ -14,12 +14,33 @@ defmodule Outbox.Registry do
   @doc """
   Returns the list of subscriber modules listening for the given event
   name. Returns `[]` if no subscribers match.
+
+  A subscriber's `events/0` entries may be exact names or patterns:
+
+    * `"order.refunded"` — exact match
+    * `"order.*"` — prefix wildcard; matches any name under the `order.`
+      namespace (`"order.refunded"`, `"order.line.added"`), but not the
+      bare `"order"` nor an unrelated word like `"ordering.created"`
+    * `"*"` — matches every event name
+
+  A subscriber matched by more than one of its patterns is returned once.
   """
   @spec lookup(String.t()) :: [module()]
   def lookup(event_name) when is_binary(event_name) do
     for subscriber <- subscribers(),
-        event_name in subscriber.events() do
+        Enum.any?(subscriber.events(), &pattern_matches?(&1, event_name)) do
       subscriber
+    end
+  end
+
+  defp pattern_matches?("*", _name), do: true
+
+  defp pattern_matches?(pattern, name) when is_binary(pattern) do
+    if String.ends_with?(pattern, ".*") do
+      prefix = String.trim_trailing(pattern, "*")
+      String.starts_with?(name, prefix)
+    else
+      pattern == name
     end
   end
 
