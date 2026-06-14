@@ -24,6 +24,7 @@ defmodule Mix.Tasks.Outbox.Gen.MigrationTest do
       assert body =~ "primary_key: false"
       assert body =~ "add :id, :uuid, primary_key: true"
       assert body =~ "uuid_generate_v4()"
+      assert body =~ "add :context, :jsonb, null: false"
       assert body =~ "create index(:outbox_events"
       assert body =~ "where: \"dispatched_at IS NULL\""
     end

@@ -13,6 +13,7 @@ defmodule Outbox.OutboxEvent do
           id: String.t() | nil,
           name: String.t() | nil,
           payload: map() | nil,
+          context: map() | nil,
           inserted_at: DateTime.t() | nil,
           dispatched_at: DateTime.t() | nil
         }
@@ -23,6 +24,7 @@ defmodule Outbox.OutboxEvent do
   schema "outbox_events" do
     field(:name, :string)
     field(:payload, :map)
+    field(:context, :map, default: %{})
     field(:dispatched_at, :utc_datetime_usec)
 
     timestamps(type: :utc_datetime_usec, updated_at: false)
@@ -32,7 +34,7 @@ defmodule Outbox.OutboxEvent do
   @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(event, attrs) do
     event
-    |> cast(attrs, [:name, :payload, :dispatched_at])
+    |> cast(attrs, [:name, :payload, :context, :dispatched_at])
     |> validate_required([:name, :payload])
     |> validate_change(:name, fn :name, value ->
       cond do

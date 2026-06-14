@@ -1,0 +1,28 @@
+[tasks.dev]
+description = "Run Phoenix Server in Dev Mode"
+run = "source .env && iex -S mix phx.server"
+
+[tasks.prod]
+description = "Run Phoenix Server in Prod Mode"
+run = "source .env.prod && iex -S mix phx.server"
+
+[tasks.devprod]
+description = "Run dev server with production database (SSL enabled)"
+run = "source .env && source .env.prod && MIX_ENV=devprod iex -S mix phx.server"
+
+[tasks.localprod]
+description = "Run dev server against prod DB (SSL, tiny pool, no Oban/cron workers)"
+run = "source .env && source .env.prod && MIX_ENV=localprod iex -S mix phx.server"
+
+[tasks.ectomigrateprod]
+description = "Runs ecto.migrate against production"
+run = "source .env && source .env.prod && MIX_ENV=localprod mix ecto.migrate"
+
+[tasks.test]
+description = "Run all tests"
+run = "source .env.test && mix test"
+
+[tools]
+elixir = "1.19.4-otp-28"
+node = "22.22.0"
+npm = "10.9.4"

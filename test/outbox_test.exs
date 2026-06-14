@@ -68,6 +68,49 @@ defmodule OutboxTest do
     end
   end
 
+  describe "publish/3 — context envelope" do
+    test "stores per-call context on the row" do
+      {:ok, event} = Outbox.publish("a.b", %{"k" => "v"}, context: %{"actor_id" => "u1"})
+      assert event.context == %{"actor_id" => "u1"}
+    end
+
+    test "defaults context to an empty map" do
+      {:ok, event} = Outbox.publish("a.b", %{"k" => "v"})
+      assert event.context == %{}
+    end
+
+    test "stringifies atom keys in context" do
+      {:ok, event} = Outbox.publish("a.b", %{}, context: %{actor_id: "u1", account_id: "acct"})
+      assert event.context == %{"actor_id" => "u1", "account_id" => "acct"}
+    end
+
+    test "merges ambient context set via put_context/1" do
+      Outbox.put_context(%{actor_id: "u1"})
+      {:ok, event} = Outbox.publish("a.b", %{})
+      assert event.context == %{"actor_id" => "u1"}
+    end
+
+    test "per-call context overrides ambient on key conflict" do
+      Outbox.put_context(%{actor_id: "ambient", account_id: "acct"})
+      {:ok, event} = Outbox.publish("a.b", %{}, context: %{actor_id: "call"})
+      assert event.context == %{"actor_id" => "call", "account_id" => "acct"}
+    end
+
+    test "clear_context/0 removes ambient context" do
+      Outbox.put_context(%{actor_id: "u1"})
+      Outbox.clear_context()
+      {:ok, event} = Outbox.publish("a.b", %{})
+      assert event.context == %{}
+    end
+
+    test "get_context/0 reflects accumulated put_context/1 calls" do
+      assert Outbox.get_context() == %{}
+      Outbox.put_context(%{a: "1"})
+      Outbox.put_context(%{b: "2"})
+      assert Outbox.get_context() == %{"a" => "1", "b" => "2"}
+    end
+  end
+
   describe "publish/2 — Repo not configured" do
     test "raises with informative message" do
       prev = Application.get_env(:outbox, Outbox)

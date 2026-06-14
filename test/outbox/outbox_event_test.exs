@@ -52,14 +52,23 @@ defmodule Outbox.OutboxEventTest do
       assert OutboxEvent.__schema__(:type, :id) == :binary_id
     end
 
-    test "fields are name, payload, inserted_at, dispatched_at" do
+    test "fields are name, payload, context, inserted_at, dispatched_at" do
       assert OutboxEvent.__schema__(:fields) == [
                :id,
                :name,
                :payload,
+               :context,
                :dispatched_at,
                :inserted_at
              ]
+    end
+
+    test "changeset casts context" do
+      cs =
+        OutboxEvent.changeset(%OutboxEvent{}, %{name: "a.b", payload: %{}, context: %{"x" => "1"}})
+
+      assert cs.valid?
+      assert Ecto.Changeset.get_field(cs, :context) == %{"x" => "1"}
     end
 
     test "no updated_at timestamp" do

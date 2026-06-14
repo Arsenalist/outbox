@@ -61,6 +61,7 @@ defmodule Mix.Tasks.Outbox.Gen.Migration do
           add :id, :uuid, primary_key: true, default: fragment("uuid_generate_v4()")
           add :name, :text, null: false
           add :payload, :jsonb, null: false
+          add :context, :jsonb, null: false, default: fragment("'{}'::jsonb")
           add :inserted_at, :utc_datetime_usec, null: false, default: fragment("NOW()")
           add :dispatched_at, :utc_datetime_usec
         end

@@ -28,7 +28,8 @@ defmodule Outbox.SubscriberJob do
          %OutboxEvent{} = event <- repo().get(OutboxEvent, event_id) do
       module.handle_event(event.name, event.payload, %{
         event_id: event.id,
-        inserted_at: event.inserted_at
+        inserted_at: event.inserted_at,
+        context: event.context || %{}
       })
     else
       nil ->

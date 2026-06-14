@@ -27,7 +27,10 @@ defmodule Outbox.DispatcherTest do
 
   describe "run/0" do
     test "claims batch and enqueues one job per (event, subscriber)" do
-      Application.put_env(:outbox, Outbox, repo: TestRepo, subscribers: [EchoSubscriber, OkSubscriber])
+      Application.put_env(:outbox, Outbox,
+        repo: TestRepo,
+        subscribers: [EchoSubscriber, OkSubscriber]
+      )
 
       e1 = insert_event!("shared.event")
       e2 = insert_event!("shared.event")

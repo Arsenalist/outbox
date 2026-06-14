@@ -66,5 +66,16 @@ defmodule Outbox.TestingTest do
       result = Testing.with_sync_dispatch(fn -> :return_value end)
       assert result == :return_value
     end
+
+    test "subscriber meta carries the event context" do
+      Application.put_env(:outbox, Outbox, repo: TestRepo, subscribers: [EchoSubscriber])
+
+      Testing.with_sync_dispatch(fn ->
+        {:ok, _} = Outbox.publish("echo.event", %{"id" => "e_1"}, context: %{"actor_id" => "u1"})
+      end)
+
+      assert_received {:echo, "echo.event", %{"id" => "e_1"}, meta}
+      assert meta.context == %{"actor_id" => "u1"}
+    end
   end
 end

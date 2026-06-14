@@ -40,7 +40,8 @@ defmodule Outbox.Subscriber do
 
   @type meta :: %{
           required(:event_id) => String.t(),
-          required(:inserted_at) => DateTime.t()
+          required(:inserted_at) => DateTime.t(),
+          required(:context) => map()
         }
 
   @callback events() :: [String.t()]

@@ -82,7 +82,11 @@ defmodule Outbox.Dispatcher do
           pubsub,
           topic,
           {:domain_event, event.name, event.payload,
-           %{event_id: event.id, inserted_at: event.inserted_at}}
+           %{
+             event_id: event.id,
+             inserted_at: event.inserted_at,
+             context: event.context || %{}
+           }}
         )
     end
   end

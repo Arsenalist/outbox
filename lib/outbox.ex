@@ -38,13 +38,53 @@ defmodule Outbox do
         product
       end)
   """
-  @spec publish(name(), payload()) :: {:ok, OutboxEvent.t()} | {:error, Ecto.Changeset.t()}
-  def publish(name, payload) when is_binary(name) and is_map(payload) do
+  @context_key {__MODULE__, :context}
+
+  @spec publish(name(), payload(), keyword()) ::
+          {:ok, OutboxEvent.t()} | {:error, Ecto.Changeset.t()}
+  def publish(name, payload, opts \\ []) when is_binary(name) and is_map(payload) do
     repo = Outbox.Config.repo()
 
     %OutboxEvent{}
-    |> OutboxEvent.changeset(%{name: name, payload: stringify_keys(payload)})
+    |> OutboxEvent.changeset(%{
+      name: name,
+      payload: stringify_keys(payload),
+      context: effective_context(opts)
+    })
     |> repo.insert()
+  end
+
+  @doc """
+  Merge `map` into the ambient context for the current process.
+
+  The ambient context is attached to every event published from this
+  process (unless a per-call `:context` overrides a key). Set it once
+  per request (e.g. in a plug or LiveView `on_mount`) so callers don't
+  thread context through every `publish/3`. The library treats the map
+  as opaque — hosts decide its keys (e.g. `actor_id`, `actor_type`).
+  Atom keys are stringified.
+  """
+  @spec put_context(map()) :: :ok
+  def put_context(map) when is_map(map) do
+    merged = Map.merge(get_context(), stringify_keys(map))
+    Process.put(@context_key, merged)
+    :ok
+  end
+
+  @doc "Returns the current process's ambient context map (defaults to `%{}`)."
+  @spec get_context() :: map()
+  def get_context, do: Process.get(@context_key, %{})
+
+  @doc "Clears the current process's ambient context."
+  @spec clear_context() :: :ok
+  def clear_context do
+    Process.delete(@context_key)
+    :ok
+  end
+
+  defp effective_context(opts) do
+    per_call = opts |> Keyword.get(:context, %{}) |> stringify_keys()
+    Map.merge(get_context(), per_call)
   end
 
   @doc "Returns a Supervisor child_spec for `Outbox.Application`."

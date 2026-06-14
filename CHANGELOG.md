@@ -11,6 +11,18 @@ changes; the minor version is bumped for each one. See
 
 ## [Unreleased]
 
+### Added
+
+- Ambient context envelope. `Outbox.publish/3` accepts a `:context` option
+  and a new `context` jsonb column stores an opaque, host-defined map on
+  every event. `Outbox.put_context/1`, `get_context/0`, and `clear_context/0`
+  set a per-process ambient context (e.g. in a plug) that is attached to
+  every subsequent publish; per-call `:context` overrides ambient keys. The
+  context is surfaced to subscribers as `meta.context` and on the PubSub
+  broadcast. Atom keys are stringified. **Upgrade:** add the `context`
+  column — re-run `mix outbox.gen.migration` for the canonical table, or
+  `ALTER TABLE outbox_events ADD COLUMN context jsonb NOT NULL DEFAULT '{}'`.
+
 ## [0.1.0-beta.1] - 2026-06-06
 
 ### Added
