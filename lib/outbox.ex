@@ -30,6 +30,18 @@ defmodule Outbox do
   always see string keys (consistent with what JSONB round-trips
   produce).
 
+  ## Options
+
+    * `:context` — opaque map merged over the ambient process context
+      (see `put_context/1`).
+    * `:sample` — float in `0.0..1.0`. The event is kept with this
+      probability; when dropped, nothing is persisted or broadcast and
+      `{:ok, :sampled_out}` is returned. For high-volume telemetry.
+    * `:transient` — when `true`, the event is **not persisted**: it is
+      broadcast to the configured PubSub (if any) and `{:ok, :transient}`
+      is returned. No row, no Oban fan-out, no delivery guarantee — for
+      loss-tolerant signals only, never an audit system of record.
+
   ## Examples
 
       Repo.transaction(fn ->
@@ -41,17 +53,51 @@ defmodule Outbox do
   @context_key {__MODULE__, :context}
 
   @spec publish(name(), payload(), keyword()) ::
-          {:ok, OutboxEvent.t()} | {:error, Ecto.Changeset.t()}
+          {:ok, OutboxEvent.t()} | {:ok, :sampled_out | :transient} | {:error, Ecto.Changeset.t()}
   def publish(name, payload, opts \\ []) when is_binary(name) and is_map(payload) do
-    repo = Outbox.Config.repo()
+    context = effective_context(opts)
 
-    %OutboxEvent{}
-    |> OutboxEvent.changeset(%{
-      name: name,
-      payload: stringify_keys(payload),
-      context: effective_context(opts)
-    })
-    |> repo.insert()
+    cond do
+      sampled_out?(opts) ->
+        {:ok, :sampled_out}
+
+      Keyword.get(opts, :transient, false) ->
+        broadcast_transient(name, stringify_keys(payload), context)
+        {:ok, :transient}
+
+      true ->
+        repo = Outbox.Config.repo()
+
+        %OutboxEvent{}
+        |> OutboxEvent.changeset(%{
+          name: name,
+          payload: stringify_keys(payload),
+          context: context
+        })
+        |> repo.insert()
+    end
+  end
+
+  defp sampled_out?(opts) do
+    case Keyword.get(opts, :sample) do
+      nil -> false
+      rate when is_number(rate) -> :rand.uniform() > rate
+    end
+  end
+
+  defp broadcast_transient(name, payload, context) do
+    case Outbox.Config.pubsub() do
+      nil ->
+        :ok
+
+      pubsub ->
+        Phoenix.PubSub.broadcast(
+          pubsub,
+          Outbox.Config.pubsub_topic(),
+          {:domain_event, name, payload,
+           %{event_id: nil, inserted_at: DateTime.utc_now(), context: context, transient: true}}
+        )
+    end
   end
 
   @doc """

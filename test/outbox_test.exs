@@ -111,6 +111,55 @@ defmodule OutboxTest do
     end
   end
 
+  describe "publish/3 — sampling" do
+    test "sample: 1.0 always persists the row" do
+      {:ok, event} = Outbox.publish("a.b", %{"k" => "v"}, sample: 1.0)
+      assert %OutboxEvent{} = event
+      assert [_] = TestRepo.all(from(e in OutboxEvent, where: e.name == "a.b"))
+    end
+
+    test "sample: 0.0 drops the event and persists nothing" do
+      assert {:ok, :sampled_out} = Outbox.publish("a.b", %{"k" => "v"}, sample: 0.0)
+      assert [] = TestRepo.all(from(e in OutboxEvent, where: e.name == "a.b"))
+    end
+  end
+
+  describe "publish/3 — transient (PubSub-only, no persistence)" do
+    test "persists nothing and returns {:ok, :transient}" do
+      assert {:ok, :transient} = Outbox.publish("a.b", %{"k" => "v"}, transient: true)
+      assert [] = TestRepo.all(from(e in OutboxEvent, where: e.name == "a.b"))
+    end
+
+    test "is a no-op-safe return when no PubSub is configured" do
+      prev = Application.get_env(:outbox, Outbox)
+      Application.put_env(:outbox, Outbox, Keyword.delete(prev || [], :pubsub))
+
+      try do
+        assert {:ok, :transient} = Outbox.publish("a.b", %{}, transient: true)
+      after
+        if prev, do: Application.put_env(:outbox, Outbox, prev)
+      end
+    end
+
+    test "broadcasts to the configured PubSub with context" do
+      start_supervised!({Phoenix.PubSub, name: Outbox.TestPubSub})
+      prev = Application.get_env(:outbox, Outbox)
+      Application.put_env(:outbox, Outbox, Keyword.put(prev || [], :pubsub, Outbox.TestPubSub))
+      Phoenix.PubSub.subscribe(Outbox.TestPubSub, "domain_events")
+
+      try do
+        {:ok, :transient} =
+          Outbox.publish("a.b", %{"k" => "v"}, transient: true, context: %{"actor_id" => "u1"})
+
+        assert_receive {:domain_event, "a.b", %{"k" => "v"}, meta}
+        assert meta.context == %{"actor_id" => "u1"}
+        assert meta.transient == true
+      after
+        if prev, do: Application.put_env(:outbox, Outbox, prev)
+      end
+    end
+  end
+
   describe "publish/2 — Repo not configured" do
     test "raises with informative message" do
       prev = Application.get_env(:outbox, Outbox)

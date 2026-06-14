@@ -22,6 +22,14 @@ changes; the minor version is bumped for each one. See
   broadcast. Atom keys are stringified. **Upgrade:** add the `context`
   column — re-run `mix outbox.gen.migration` for the canonical table, or
   `ALTER TABLE outbox_events ADD COLUMN context jsonb NOT NULL DEFAULT '{}'`.
+- Pattern matching in subscriber `events/0`. Entries may be exact names,
+  prefix wildcards (`"order.*"`), or `"*"` (all events). A subscriber
+  matched by multiple patterns is dispatched once. Exact strings behave as
+  before.
+- Sampling and transient publishing. `Outbox.publish/3` accepts `:sample`
+  (keep with probability `0.0..1.0`, returns `{:ok, :sampled_out}` when
+  dropped) and `:transient` (PubSub-only, no row/Oban fan-out, returns
+  `{:ok, :transient}`) — for high-volume, loss-tolerant telemetry.
 
 ## [0.1.0-beta.1] - 2026-06-06
 
