@@ -36,6 +36,13 @@ changes; the minor version is bumped for each one. See
   delivery; a returned `{:error, _}` or a raise rolls the claim back so a
   retry re-runs. **Upgrade:** create the table via `mix outbox.gen.migration`
   (the canonical migration now includes it).
+- Per-event payload schema validation. `config :outbox, Outbox, schemas:
+  %{"order.placed" => validator}` registers a 1-arity function or
+  `{module, function}` validator (returning `:ok` / `{:error, reason}`)
+  run against the stringified payload at publish time. A failure returns
+  `{:error, {:schema, reason}}` and persists/broadcasts nothing. The
+  library stays dependency-free — hosts supply the validator (e.g. wrapping
+  their own schema library).
 
 ## [0.1.0-beta.1] - 2026-06-06
 

@@ -45,6 +45,16 @@ defmodule Outbox.Config do
   @spec subscribers() :: [module()]
   def subscribers, do: Keyword.get(opts(), :subscribers, [])
 
+  @doc """
+  Returns the per-event payload validator map. Defaults to `%{}`.
+
+  Keys are exact event names; values are validators applied to the
+  stringified payload at publish time — either a 1-arity function or a
+  `{module, function}` tuple, each returning `:ok` or `{:error, reason}`.
+  """
+  @spec schemas() :: %{optional(String.t()) => function() | {module(), atom()}}
+  def schemas, do: Keyword.get(opts(), :schemas, %{})
+
   @doc "Returns the prune retention window in days. Defaults to 30."
   @spec retention_days() :: pos_integer()
   def retention_days, do: Keyword.get(opts(), :retention_days, 30)

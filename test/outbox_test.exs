@@ -160,6 +160,56 @@ defmodule OutboxTest do
     end
   end
 
+  describe "publish/3 — payload schema validation" do
+    setup do
+      prev = Application.get_env(:outbox, Outbox)
+      on_exit(fn -> if prev, do: Application.put_env(:outbox, Outbox, prev) end)
+      {:ok, prev: prev}
+    end
+
+    defp put_schemas(prev, schemas) do
+      Application.put_env(:outbox, Outbox, Keyword.put(prev, :schemas, schemas))
+    end
+
+    test "passes a valid payload through and persists", %{prev: prev} do
+      put_schemas(prev, %{
+        "order.placed" => fn p -> if p["id"], do: :ok, else: {:error, :no_id} end
+      })
+
+      {:ok, event} = Outbox.publish("order.placed", %{"id" => "o_1"})
+      assert %OutboxEvent{name: "order.placed"} = event
+    end
+
+    test "rejects an invalid payload and persists nothing", %{prev: prev} do
+      put_schemas(prev, %{
+        "order.placed" => fn p -> if p["id"], do: :ok, else: {:error, :no_id} end
+      })
+
+      assert {:error, {:schema, :no_id}} = Outbox.publish("order.placed", %{})
+      assert [] = TestRepo.all(from(e in OutboxEvent, where: e.name == "order.placed"))
+    end
+
+    test "events without a registered schema are not validated", %{prev: prev} do
+      put_schemas(prev, %{"order.placed" => fn _ -> {:error, :always} end})
+      {:ok, _} = Outbox.publish("unrelated.event", %{})
+    end
+
+    test "validates the stringified payload (atom keys seen as strings)", %{prev: prev} do
+      put_schemas(prev, %{
+        "a.b" => fn p -> if Map.has_key?(p, "id"), do: :ok, else: {:error, :no_id} end
+      })
+
+      {:ok, _} = Outbox.publish("a.b", %{id: "x"})
+    end
+
+    test "supports an {module, function} validator", %{prev: prev} do
+      put_schemas(prev, %{"a.b" => {__MODULE__, :reject_validator}})
+      assert {:error, {:schema, :mfa_rejected}} = Outbox.publish("a.b", %{})
+    end
+  end
+
+  def reject_validator(_payload), do: {:error, :mfa_rejected}
+
   describe "publish/2 — Repo not configured" do
     test "raises with informative message" do
       prev = Application.get_env(:outbox, Outbox)

@@ -42,6 +42,11 @@ defmodule Outbox do
       is returned. No row, no Oban fan-out, no delivery guarantee — for
       loss-tolerant signals only, never an audit system of record.
 
+  If a validator is registered for this event name (see
+  `Outbox.Config.schemas/0`), the stringified payload is validated first;
+  a failure returns `{:error, {:schema, reason}}` and nothing is persisted
+  or broadcast.
+
   ## Examples
 
       Repo.transaction(fn ->
@@ -53,30 +58,44 @@ defmodule Outbox do
   @context_key {__MODULE__, :context}
 
   @spec publish(name(), payload(), keyword()) ::
-          {:ok, OutboxEvent.t()} | {:ok, :sampled_out | :transient} | {:error, Ecto.Changeset.t()}
+          {:ok, OutboxEvent.t()}
+          | {:ok, :sampled_out | :transient}
+          | {:error, Ecto.Changeset.t()}
+          | {:error, {:schema, term()}}
   def publish(name, payload, opts \\ []) when is_binary(name) and is_map(payload) do
     context = effective_context(opts)
+    string_payload = stringify_keys(payload)
 
-    cond do
-      sampled_out?(opts) ->
-        {:ok, :sampled_out}
+    with :ok <- validate_schema(name, string_payload) do
+      cond do
+        sampled_out?(opts) ->
+          {:ok, :sampled_out}
 
-      Keyword.get(opts, :transient, false) ->
-        broadcast_transient(name, stringify_keys(payload), context)
-        {:ok, :transient}
+        Keyword.get(opts, :transient, false) ->
+          broadcast_transient(name, string_payload, context)
+          {:ok, :transient}
 
-      true ->
-        repo = Outbox.Config.repo()
+        true ->
+          repo = Outbox.Config.repo()
 
-        %OutboxEvent{}
-        |> OutboxEvent.changeset(%{
-          name: name,
-          payload: stringify_keys(payload),
-          context: context
-        })
-        |> repo.insert()
+          %OutboxEvent{}
+          |> OutboxEvent.changeset(%{name: name, payload: string_payload, context: context})
+          |> repo.insert()
+      end
     end
   end
+
+  defp validate_schema(name, payload) do
+    case Map.get(Outbox.Config.schemas(), name) do
+      nil -> :ok
+      fun when is_function(fun, 1) -> wrap_schema_result(fun.(payload))
+      {mod, f} -> wrap_schema_result(apply(mod, f, [payload]))
+    end
+  end
+
+  defp wrap_schema_result(:ok), do: :ok
+  defp wrap_schema_result({:ok, _}), do: :ok
+  defp wrap_schema_result({:error, reason}), do: {:error, {:schema, reason}}
 
   defp sampled_out?(opts) do
     case Keyword.get(opts, :sample) do

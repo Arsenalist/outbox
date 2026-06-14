@@ -50,6 +50,19 @@ defmodule Outbox.ConfigTest do
     end
   end
 
+  describe "schemas/0" do
+    test "defaults to an empty map" do
+      Application.put_env(:outbox, Outbox, [])
+      assert Config.schemas() == %{}
+    end
+
+    test "returns the configured schema map" do
+      validator = fn _ -> :ok end
+      Application.put_env(:outbox, Outbox, schemas: %{"a.b" => validator})
+      assert Config.schemas() == %{"a.b" => validator}
+    end
+  end
+
   describe "retention_days/0" do
     test "defaults to 30" do
       Application.put_env(:outbox, Outbox, [])
