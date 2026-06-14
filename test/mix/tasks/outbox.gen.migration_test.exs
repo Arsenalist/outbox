@@ -27,6 +27,9 @@ defmodule Mix.Tasks.Outbox.Gen.MigrationTest do
       assert body =~ "add :context, :jsonb, null: false"
       assert body =~ "create index(:outbox_events"
       assert body =~ "where: \"dispatched_at IS NULL\""
+      assert body =~ "create table(:outbox_consumed_events"
+      assert body =~ "add :consumer, :text, null: false, primary_key: true"
+      assert body =~ "add :event_id, :text, null: false, primary_key: true"
     end
 
     test "honors --prefix option" do

@@ -70,6 +70,12 @@ defmodule Mix.Tasks.Outbox.Gen.Migration do
                  #{index_prefix}where: "dispatched_at IS NULL",
                  name: :outbox_events_undispatched_idx
                )
+
+        create table(:outbox_consumed_events, #{table_opts}) do
+          add :consumer, :text, null: false, primary_key: true
+          add :event_id, :text, null: false, primary_key: true
+          add :inserted_at, :utc_datetime_usec, null: false, default: fragment("NOW()")
+        end
       end
     end
     """

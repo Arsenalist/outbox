@@ -30,6 +30,12 @@ changes; the minor version is bumped for each one. See
   (keep with probability `0.0..1.0`, returns `{:ok, :sampled_out}` when
   dropped) and `:transient` (PubSub-only, no row/Oban fan-out, returns
   `{:ok, :transient}`) — for high-volume, loss-tolerant telemetry.
+- `Outbox.Idempotency.run_once/3` — exactly-once execution guard for the
+  at-least-once delivery contract. Claims `(consumer, event_id)` in a new
+  `outbox_consumed_events` table and runs the side-effect only on the first
+  delivery; a returned `{:error, _}` or a raise rolls the claim back so a
+  retry re-runs. **Upgrade:** create the table via `mix outbox.gen.migration`
+  (the canonical migration now includes it).
 
 ## [0.1.0-beta.1] - 2026-06-06
 
